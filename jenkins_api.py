@@ -46,16 +46,73 @@ class JenkinsCLI:
         except Exception as e:
             print(f"Error getting job info: {str(e)}")
 
-    def build_job(self, job_name: str, parameters: Optional[dict] = None) -> None:
-        """Trigger a build for a specific job."""
+    def build_job(self, job_name: str, parameters: Optional[dict] = None, stream: bool = False, progress: bool = False) -> None:
+        """Trigger a build for a specific job and optionally stream its progress."""
         try:
+            queue_item = None
             if parameters:
-                self.server.build_job(job_name, parameters=parameters)
+                queue_item = self.server.build_job(job_name, parameters=parameters)
             else:
-                self.server.build_job(job_name)
+                queue_item = self.server.build_job(job_name)
+            
             print(f"Successfully triggered build for job: {job_name}")
+            
+            if stream or progress:
+                print("Waiting for build to start...")
+                build_number = None
+                while build_number is None:
+                    job_info = self.server.get_job_info(job_name)
+                    if job_info['lastBuild']['number'] > job_info.get('lastCompletedBuild', {}).get('number', 0):
+                        build_number = job_info['lastBuild']['number']
+                    
+                print(f"Build #{build_number} started")
+                
+                while True:
+                    build_info = self.server.get_build_info(job_name, build_number)
+                    if not build_info.get('building', False):
+                        result = build_info.get('result', 'UNKNOWN')
+                        print(f"\nBuild finished with result: {result}")
+                        break
+                        
+                    if progress:
+                        build_info = self.server.get_build_info(job_name, build_number)
+                        status = build_info.get('displayName', '') or f'Build #{build_number}'
+                        
+                        # Get build stages if available (for pipeline jobs)
+                        try:
+                            stages = self.server.get_build_stages(job_name, build_number)
+                            if stages:
+                                completed_stages = sum(1 for stage in stages if stage.get('status') == 'SUCCESS')
+                                total_stages = len(stages)
+                                current_stage = next((stage['name'] for stage in stages if stage.get('status') == 'IN_PROGRESS'), None)
+                                progress_value = int((completed_stages / total_stages) * 100)
+                                status_text = f"{status} - {current_stage}" if current_stage else status
+                                print(f"\rProgress: [{('=' * (progress_value // 2)).ljust(50)}] {progress_value}% - {status_text}", end='')
+                            else:
+                                # Fallback for non-pipeline jobs
+                                timestamp = build_info.get('timestamp', 0)
+                                current_time = int(time.time() * 1000)  # Convert to milliseconds
+                                estimated_duration = build_info.get('estimatedDuration', 0)
+                                
+                                if estimated_duration > 0:
+                                    elapsed = current_time - timestamp
+                                    progress_value = min(95, int((elapsed / estimated_duration) * 100))  # Cap at 95% until complete
+                                    print(f"\rProgress: [{('=' * (progress_value // 2)).ljust(50)}] {progress_value}% - {status}", end='')
+                                else:
+                                    print(f"\rProgress: Running... - {status}", end='')
+                        except:
+                            # If stages API fails, show simpler progress
+                            print(f"\rProgress: Running... - {status}", end='')
+                    
+                    if stream:
+                        console_output = self.server.get_build_console_output(job_name, build_number)
+                        print(console_output)
+                    
+                    import time
+                    time.sleep(2)  # Poll every 2 seconds
+                    
         except Exception as e:
-            print(f"Error triggering build: {str(e)}")
+            print(f"Error with build: {str(e)}")
 
 def main():
     parser = argparse.ArgumentParser(description='Jenkins CLI Tool for Jenkins')
@@ -75,6 +132,8 @@ def main():
     build_parser = subparsers.add_parser('build', help='Trigger a job build')
     build_parser.add_argument('job_name', help='Name of the job to build')
     build_parser.add_argument('--parameters', help='JSON string of build parameters')
+    build_parser.add_argument('--stream', action='store_true', help='Stream console output')
+    build_parser.add_argument('--progress', action='store_true', help='Show build progress bar')
 
     args = parser.parse_args()
 
@@ -94,7 +153,7 @@ def main():
         jenkins_cli.get_job_info(args.job_name)
     elif args.command == 'build':
         parameters = json.loads(args.parameters) if args.parameters else None
-        jenkins_cli.build_job(args.job_name, parameters)
+        jenkins_cli.build_job(args.job_name, parameters, args.stream, args.progress)
     else:
         parser.print_help()
 

@@ -29,7 +29,7 @@ pip install -r requirements.txt
 ### Method 1: Environment Variables
 You can set your Jenkins configuration as environment variables:
 ```bash
-export JENKINS_URL="your Jenkins URL"  # Optional, defaults to this URL
+export JENKINS_URL="your Jenkins URL"  # Optional, defaults to this URL 
 export JENKINS_USERNAME="your-username"
 export JENKINS_TOKEN="your-api-token"
 ```
@@ -108,6 +108,26 @@ With parameters:
 ./jenkins_api.py --username your-username --token your-api-token build job-name --parameters '{"param1": "value1"}'
 ```
 
+With console output streaming:
+```bash
+./jenkins_api.py --username your-username --token your-api-token build job-name --stream
+```
+
+With build progress bar:
+```bash
+./jenkins_api.py --username your-username --token your-api-token build job-name --progress
+```
+
+With both console output and progress bar:
+```bash
+./jenkins_api.py --username your-username --token your-api-token build job-name --stream --progress
+```
+
+With parameters and monitoring:
+```bash
+./jenkins_api.py --username your-username --token your-api-token build job-name --parameters '{"param1": "value1"}' --stream --progress
+```
+
 ## Examples
 
 1. List all available jobs:
@@ -123,5 +143,15 @@ With parameters:
 3. Trigger a parameterized build:
 ```bash
 ./jenkins_api.py --username john.doe --token 11aa22bb33cc build deployment-job --parameters '{"environment": "staging", "version": "1.2.3"}'
+```
+
+4. Trigger a build with progress monitoring:
+```bash
+./jenkins_api.py --username john.doe --token 11aa22bb33cc build my-build-job --progress
+```
+
+5. Trigger a build with console output streaming:
+```bash
+./jenkins_api.py --username john.doe --token 11aa22bb33cc build my-build-job --stream
 ```
 Pavel Svoboda
