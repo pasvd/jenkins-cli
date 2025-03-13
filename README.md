@@ -26,7 +26,37 @@ pip install -r requirements.txt
 
 ## Configuration
 
-### Method 1: Environment Variables
+### Method 1: Alias Configuration
+You can use aliases for your frequently used jobs and their parameters. The configuration is stored in `~/.jenkins-cli.yaml`.
+
+1. Generate default configuration:
+```bash
+./jenkins_api.py init-config
+```
+
+This will create a config file with an example alias:
+```yaml
+aliases:
+  deploy-app:
+    job_name: DEPLOY_my_application
+    parameters:
+      TASK: deploy
+      GIT_SYMBOL: origin/master
+    options:
+      progress: true
+```
+
+Now you can use the alias instead of the full job name and parameters:
+```bash
+jenkins-cli build deploy-app  # This will use the configured job name and parameters
+```
+
+You can still override parameters from command line:
+```bash
+jenkins-cli build deploy-app --parameters '{"TASK": "restart"}'
+```
+
+### Method 2: Environment Variables
 You can set your Jenkins configuration as environment variables:
 ```bash
 export JENKINS_URL="your Jenkins URL"  # Optional, defaults to this URL 
@@ -154,4 +184,4 @@ With parameters and monitoring:
 ```bash
 ./jenkins_api.py --username john.doe --token 11aa22bb33cc build my-build-job --stream
 ```
-Pavel Svoboda
+

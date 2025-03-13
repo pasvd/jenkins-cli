@@ -5,7 +5,8 @@ import argparse
 import sys
 import json
 import os
-from typing import Optional
+from typing import Optional, Dict, Any
+from config_handler import ConfigHandler
 
 class JenkinsCLI:
     def __init__(self, url: str, username: str, password: str):
@@ -130,10 +131,13 @@ def main():
     
     # Build job command
     build_parser = subparsers.add_parser('build', help='Trigger a job build')
-    build_parser.add_argument('job_name', help='Name of the job to build')
+    build_parser.add_argument('job_name', help='Name of the job or alias to build')
     build_parser.add_argument('--parameters', help='JSON string of build parameters')
     build_parser.add_argument('--stream', action='store_true', help='Stream console output')
     build_parser.add_argument('--progress', action='store_true', help='Show build progress bar')
+
+    # Init config command
+    subparsers.add_parser('init-config', help='Generate default configuration file')
 
     args = parser.parse_args()
 
@@ -147,13 +151,34 @@ def main():
 
     jenkins_cli = JenkinsCLI(jenkins_url, username, token)
 
+    config_handler = ConfigHandler()
+
     if args.command == 'list':
         jenkins_cli.list_jobs()
     elif args.command == 'info':
         jenkins_cli.get_job_info(args.job_name)
     elif args.command == 'build':
-        parameters = json.loads(args.parameters) if args.parameters else None
-        jenkins_cli.build_job(args.job_name, parameters, args.stream, args.progress)
+        # Check if job_name is an alias
+        alias_config = config_handler.get_job_config(args.job_name)
+        if alias_config:
+            job_name = alias_config['job_name']
+            parameters = alias_config.get('parameters', {})
+            if args.parameters:
+                # Merge with user provided parameters
+                parameters.update(json.loads(args.parameters))
+            
+            options = alias_config.get('options', {})
+            stream = args.stream or options.get('stream', False)
+            progress = args.progress or options.get('progress', False)
+        else:
+            job_name = args.job_name
+            parameters = json.loads(args.parameters) if args.parameters else None
+            stream = args.stream
+            progress = args.progress
+        
+        jenkins_cli.build_job(job_name, parameters, stream, progress)
+    elif args.command == 'init-config':
+        config_handler.generate_default_config()
     else:
         parser.print_help()
 
