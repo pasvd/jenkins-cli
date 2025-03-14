@@ -5,8 +5,13 @@ export JENKINS_URL="http://localhost:8080"
 export JENKINS_USERNAME="<username>"
 export JENKINS_TOKEN="<token>"
 
-# Optional: Create an alias for easier usage
-alias jenkins-cli="cd ~/Work/jenkins-cli && asdf exec python jenkins_api.py"
+# Create a function for handling the jenkins-cli commands
+jenkins-cli() {
+    local original_dir=$PWD
+    cd ~/Work/jenkins-cli
+    asdf exec python jenkins_api.py "$@"
+    cd "$original_dir"
+}
 
 # Example usage with alias:
 # jenkins-cli list
